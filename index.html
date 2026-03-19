@@ -340,16 +340,19 @@ async function fetchEedesScore(winery, name, vintage, region, grapes) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 300,
-        system: "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.",
-        messages: [{ role: "user", content: `Search winemag.co.za for the Christian Eedes score for "${winery} ${name} ${vintage}" (${region}, ${grapes}). Return JSON: {"score": 95} or {"score": null}.` }],
-        tools: [{ type: "web_search_20250305", name: "web_search" }]
+        max_tokens: 500,
+        system: "You are a wine expert. Always use web search. Respond only with valid JSON, no markdown, no backticks.",
+        messages: [{ role: "user", content: `Use web search to find the Christian Eedes score on winemag.co.za for "${winery} ${name} ${vintage}" (${region}, ${grapes}). Return JSON: {"score": 95} or {"score": null}.` }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        tool_choice: { type: "auto" }
       })
     });
     const d = await r.json();
-    console.log("Score API response:", JSON.stringify(d));
+    console.log("Score API response:", JSON.stringify(d).substring(0, 500));
     const text = d.content?.map(b => b.text || "").join("") || "";
-    const j = JSON.parse(text.replace(/```json|```/g, "").trim());
+    if (!text) return { score: null, url: null };
+    const clean = text.replace(/```json|```/g, "").trim();
+    const j = JSON.parse(clean);
     return { score: j.score || null, url: null };
   } catch(e) { console.error("Score fetch error:", e); return { score: null, url: null }; }
 }
