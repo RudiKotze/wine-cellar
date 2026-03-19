@@ -455,9 +455,17 @@ async function removeWine(id) {
 
 async function enrichAndAdd(data) {
   setNotice("Searching for bottle photo…");
-  const imageUrl = await fetchBottlePhoto(data.winery, data.name, data.vintage);
+  let imageUrl = null;
+  let eedes = { score: null, url: null };
+  try {
+    imageUrl = await fetchBottlePhoto(data.winery, data.name, data.vintage);
+    console.log("Photo result:", imageUrl);
+  } catch(e) { console.error("Photo error:", e); }
   setNotice("Finding Christian Eedes score…");
-  const eedes = await fetchEedesScore(data.winery, data.name, data.vintage, data.region, data.grapes);
+  try {
+    eedes = await fetchEedesScore(data.winery, data.name, data.vintage, data.region, data.grapes);
+    console.log("Score result:", eedes);
+  } catch(e) { console.error("Score error:", e); }
   const wine = { id: `w_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...data, imageUrl, eedesScore: eedes.score, eedesUrl: eedes.url };
   wines.push(wine);
   setNotice("Saving to GitHub…");
