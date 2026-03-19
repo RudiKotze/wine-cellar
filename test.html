@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Worker Test</title></head>
+<body>
+<h2>Worker Test</h2>
+<button onclick="runTest()">Test connection</button>
+<pre id="result" style="margin-top:1rem;padding:1rem;background:#f0f0f0;white-space:pre-wrap;"></pre>
+<script>
+async function runTest() {
+  const el = document.getElementById("result");
+  el.textContent = "Testing...";
+  try {
+    const r = await fetch("https://wine-cellar-proxy.rudi-57f.workers.dev/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 50,
+        messages: [{ role: "user", content: "Say hello in one word" }]
+      })
+    });
+    const data = await r.json();
+    el.textContent = JSON.stringify(data, null, 2);
+  } catch(e) {
+    el.textContent = "Error: " + e.message;
+  }
+}
+</script>
+</body>
+</html>
