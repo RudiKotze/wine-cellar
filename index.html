@@ -351,9 +351,11 @@ async function fetchEedesScore(winery, name, vintage, region, grapes) {
     console.log("Score API response:", JSON.stringify(d).substring(0, 500));
     const text = d.content?.map(b => b.text || "").join("") || "";
     if (!text) return { score: null, url: null };
-    const clean = text.replace(/```json|```/g, "").trim();
-    const j = JSON.parse(clean);
-    return { score: j.score || null, url: null };
+    const match = text.match(/\{\s*"score"\s*:\s*(\d+)\s*\}/);
+    if (match) return { score: parseInt(match[1]), url: null };
+    const numMatch = text.match(/\b(8[5-9]|9[0-9]|100)\/100\b/);
+    if (numMatch) return { score: parseInt(numMatch[1]), url: null };
+    return { score: null, url: null };
   } catch(e) { console.error("Score fetch error:", e); return { score: null, url: null }; }
 }
 
