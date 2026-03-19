@@ -509,6 +509,8 @@ async function fetchWineDetails(winery, name, vintage) {
   } catch(e) { console.error("Details error:", e); return { region: "", grapes: "" }; }
 }
 
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 async function enrichAndAdd(data) {
   let enriched = { ...data };
   if (data.winery && data.name && data.vintage && (!data.region || !data.grapes)) {
@@ -518,17 +520,19 @@ async function enrichAndAdd(data) {
       if (!enriched.region && details.region) enriched.region = details.region;
       if (!enriched.grapes && details.grapes) enriched.grapes = details.grapes;
     } catch(e) { console.error("Details lookup error:", e); }
+    await delay(3000);
   }
-  setNotice("Searching for bottle photo…");
-  let imageUrl = null;
-  let eedes = { score: null, url: null };
-  try {
-    imageUrl = await fetchBottlePhoto(enriched.winery, enriched.name, enriched.vintage);
-  } catch(e) { console.error("Photo error:", e); }
   setNotice("Finding Christian Eedes score…");
+  let eedes = { score: null, url: null };
   try {
     eedes = await fetchEedesScore(enriched.winery, enriched.name, enriched.vintage, enriched.region, enriched.grapes);
   } catch(e) { console.error("Score error:", e); }
+  await delay(3000);
+  setNotice("Searching for bottle photo…");
+  let imageUrl = null;
+  try {
+    imageUrl = await fetchBottlePhoto(enriched.winery, enriched.name, enriched.vintage);
+  } catch(e) { console.error("Photo error:", e); }
   const wine = { id: `w_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...enriched, imageUrl, eedesScore: eedes.score, eedesUrl: eedes.url };
   wines.push(wine);
   setNotice("Saving to GitHub…");
