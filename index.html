@@ -314,7 +314,7 @@ async function callClaudeWebSearch(userMsg) {
 
 async function fetchBottlePhoto(winery, name, vintage) {
   try {
-    const text = await callClaudeWebSearch(`Find a direct image URL (ending in .jpg, .jpeg, .png, or .webp) showing the bottle of "${winery} ${name} ${vintage}". Search wine retailer sites like wine.co.za, winemag.co.za, or the winery website. Return JSON: {"imageUrl": "https://..."} or {"imageUrl": null}`);
+    const text = await callClaude([{ role: "user", content: `Find a direct image URL (ending in .jpg, .jpeg, .png, or .webp) for the wine bottle: "${winery} ${name} ${vintage}". Return JSON: {"imageUrl": "https://..."} or {"imageUrl": null}` }], "You are a wine expert. Respond only with valid JSON, no markdown.");
     const j = JSON.parse(text.replace(/```json|```/g, "").trim());
     return j.imageUrl || null;
   } catch { return null; }
@@ -322,9 +322,9 @@ async function fetchBottlePhoto(winery, name, vintage) {
 
 async function fetchEedesScore(winery, name, vintage, region, grapes) {
   try {
-    const text = await callClaudeWebSearch(`Find the Christian Eedes review score for "${winery} ${name} ${vintage}" (${region}, ${grapes}). Check winereview.co.za, winemag.co.za. Return JSON: {"score": 92, "url": "https://..."} or {"score": null, "url": null}`);
+    const text = await callClaude([{ role: "user", content: `What is the Christian Eedes score for "${winery} ${name} ${vintage}" from ${region}, made from ${grapes}? Return JSON: {"score": 92} or {"score": null}` }], "You are a South African wine expert with knowledge of Christian Eedes scores from winemag.co.za. Respond only with valid JSON, no markdown.");
     const j = JSON.parse(text.replace(/```json|```/g, "").trim());
-    return { score: j.score || null, url: j.url || null };
+    return { score: j.score || null, url: null };
   } catch { return { score: null, url: null }; }
 }
 
