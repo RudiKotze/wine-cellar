@@ -117,4 +117,446 @@
   <div id="main-screen" style="display:none;">
     <div class="header">
       <div>
-        <h1 style="font-size:22px;font-weight:500;
+        <h1 style="font-size:22px;font-weight:500;">My Cellar</h1>
+        <p style="color:var(--text2);font-size:13px;margin-top:3px;" id="summary">Loading...</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="view-toggle">
+          <button id="btn-grid" class="active" onclick="setView('grid')">Grid</button>
+          <button id="btn-list" onclick="setView('list')">List</button>
+        </div>
+        <button onclick="showSetup()" style="font-size:12px;padding:6px 10px;">⚙️</button>
+      </div>
+    </div>
+
+    <div id="notice-bar" style="display:none;" class="notice"></div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('cellar')">Cellar</button>
+      <button class="tab" onclick="switchTab('photo')">Add by photo</button>
+      <button class="tab" onclick="switchTab('manual')">Add manually</button>
+      <button class="tab" onclick="switchTab('csv')">Import list</button>
+      <button class="tab" onclick="switchTab('remove')">Remove by photo</button>
+    </div>
+
+    <!-- CELLAR TAB -->
+    <div id="tab-cellar">
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Wines</div><div class="stat-value" id="stat-wines">0</div></div>
+        <div class="stat"><div class="stat-label">Bottles</div><div class="stat-value" id="stat-bottles">0</div></div>
+        <div class="stat"><div class="stat-label">Regions</div><div class="stat-value" id="stat-regions">0</div></div>
+      </div>
+      <div class="filters">
+        <input id="search" placeholder="Search wines, wineries, grapes…" oninput="renderCellar()" />
+        <select id="filter-region" onchange="renderCellar()"><option value="">All regions</option></select>
+        <select id="sort-by" onchange="renderCellar()">
+          <option value="winery">Sort: Winery</option>
+          <option value="vintage">Sort: Vintage</option>
+          <option value="bottles">Sort: Bottles</option>
+        </select>
+      </div>
+      <div id="cellar-content"></div>
+    </div>
+
+    <!-- PHOTO TAB -->
+    <div id="tab-photo" style="display:none;max-width:480px;">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:1.25rem;line-height:1.6;">Take or upload a photo of the wine label. Claude will identify the wine and automatically find a bottle photo.</p>
+      <div class="photo-btns">
+        <button class="photo-btn" onclick="triggerPhoto('capture')"><span class="icon">📷</span><span>Take photo</span></button>
+        <button class="photo-btn" onclick="triggerPhoto('upload')"><span class="icon">📁</span><span>Upload image</span></button>
+      </div>
+      <input id="file-add" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleLabelPhoto(event)" />
+    </div>
+
+    <!-- MANUAL TAB -->
+    <div id="tab-manual" style="display:none;max-width:460px;">
+      <div class="form-row">
+        <div class="form-group"><label>Winery *</label><input id="m-winery" placeholder="e.g. Kanonkop" /></div>
+        <div class="form-group"><label>Wine name *</label><input id="m-name" placeholder="e.g. Pinotage" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Vintage</label><input id="m-vintage" placeholder="e.g. 2020" /></div>
+        <div class="form-group"><label>Region <span style="color:var(--text3);font-size:11px;">(auto-filled if blank)</span></label><input id="m-region" placeholder="e.g. Stellenbosch" /></div>
+      </div>
+      <div class="form-group"><label>Grape variety <span style="color:var(--text3);font-size:11px;">(auto-filled if blank)</span></label><input id="m-grapes" placeholder="e.g. Pinotage" /></div>
+      <div class="form-group"><label>Number of bottles</label><input id="m-bottles" type="number" min="1" value="1" /></div>
+      <button class="primary" onclick="handleManualAdd()" style="width:100%;padding:10px;margin-top:4px;">Add wine</button>
+    </div>
+
+    <!-- CSV TAB -->
+    <div id="tab-csv" style="display:none;max-width:600px;">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:0.75rem;line-height:1.6;">
+        Paste or upload a CSV. Format: <code style="font-size:12px;background:var(--bg3);padding:1px 6px;border-radius:4px;">Winery, Name, Vintage, Region, Grapes, Bottles</code><br>
+        <span style="font-size:12px;color:var(--text3);">Region and Grapes are optional — they'll be looked up automatically if blank.</span>
+      </p>
+      <div style="margin-bottom:10px;"><button onclick="document.getElementById('csv-file').click()">Upload CSV file</button></div>
+      <input id="csv-file" type="file" accept=".csv,.txt" style="display:none" onchange="handleCSVFile(event)" />
+      <textarea id="csv-text" rows="9" placeholder="Kanonkop, Pinotage, 2019, Stellenbosch, Pinotage, 6&#10;Mullineux, Kloof Street Red, 2021, Swartland, Syrah/Grenache, 3&#10;Sadie Family, Columella, 2018, , , 2"></textarea>
+      <button class="primary" onclick="handleCSVImport()" style="margin-top:10px;padding:9px 20px;">Import wines</button>
+    </div>
+
+    <!-- REMOVE TAB -->
+    <div id="tab-remove" style="display:none;max-width:480px;">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:1.25rem;line-height:1.6;">Photograph the label of the bottle you're opening. One bottle will be removed from your cellar.</p>
+      <div class="photo-btns">
+        <button class="photo-btn" onclick="triggerRemovePhoto('capture')"><span class="icon">📷</span><span>Take photo</span></button>
+        <button class="photo-btn" onclick="triggerRemovePhoto('upload')"><span class="icon">📁</span><span>Upload image</span></button>
+      </div>
+      <input id="file-remove" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleRemovePhoto(event)" />
+    </div>
+  </div>
+</div>
+
+<script>
+const PROXY_URL = "https://wine-cellar-proxy.rudi-57f.workers.dev";
+const DATA_FILE = "cellar.json";
+const delay = ms => new Promise(res => setTimeout(res, ms));
+let config = {};
+let wines = [];
+let currentView = "grid";
+let isLoading = false;
+
+function loadConfig() { const r = localStorage.getItem("wc_config"); return r ? JSON.parse(r) : null; }
+function saveConfig(c) { localStorage.setItem("wc_config", JSON.stringify(c)); }
+
+async function ghGet(path) {
+  const r = await fetch(`https://api.github.com/repos/${config.user}/${config.repo}/contents/${path}`, {
+    headers: { Authorization: `token ${config.token}`, Accept: "application/vnd.github.v3+json" }
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`GitHub error ${r.status}`);
+  return r.json();
+}
+
+async function ghPut(path, content, sha) {
+  const body = { message: `Update ${path}`, content: btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2)))), ...(sha ? { sha } : {}) };
+  const r = await fetch(`https://api.github.com/repos/${config.user}/${config.repo}/contents/${path}`, {
+    method: "PUT", headers: { Authorization: `token ${config.token}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || "GitHub write failed"); }
+  return r.json();
+}
+
+async function loadWines() {
+  const file = await ghGet(DATA_FILE);
+  if (!file) { wines = []; return; }
+  wines = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g, "")))));
+}
+
+async function saveWines() {
+  const file = await ghGet(DATA_FILE);
+  await ghPut(DATA_FILE, wines, file?.sha);
+}
+
+async function callClaude(messages, system, maxTokens = 500) {
+  const r = await fetch(PROXY_URL, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, system: system || "Respond only with valid JSON, no markdown, no backticks.", messages })
+  });
+  const d = await r.json();
+  return d.content?.map(b => b.text || "").join("") || "";
+}
+
+async function callClaudeWithImage(b64, mediaType, prompt) {
+  return callClaude([{ role: "user", content: [
+    { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
+    { type: "text", text: prompt }
+  ]}], "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.");
+}
+
+async function fetchWineDetails(winery, name, vintage) {
+  try {
+    const text = await callClaude([{ role: "user", content: `What is the wine region and grape variety for "${winery} ${name} ${vintage}"? Return JSON: {"region": "Stellenbosch", "grapes": "Cabernet Sauvignon"} or empty strings if unknown.` }],
+      "You are a South African wine expert. Respond only with valid JSON, no markdown.");
+    const match = text.match(/\{[^{}]*"region"[^{}]*\}/s);
+    if (match) { const j = JSON.parse(match[0]); return { region: j.region || "", grapes: j.grapes || "" }; }
+    return { region: "", grapes: "" };
+  } catch(e) { return { region: "", grapes: "" }; }
+}
+
+async function fetchBottlePhoto(winery, name, vintage) {
+  try {
+    const r = await fetch(PROXY_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", max_tokens: 200,
+        system: "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.",
+        messages: [{ role: "user", content: `Find a bottle image URL for "${winery} ${name} ${vintage}". Return JSON: {"imageUrl": "https://..."} or {"imageUrl": null}.` }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }], tool_choice: { type: "auto" }
+      })
+    });
+    const d = await r.json();
+    const text = d.content?.map(b => b.text || "").join("") || "";
+    const match = text.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|webp)/i);
+    return match ? match[0] : null;
+  } catch(e) { return null; }
+}
+
+async function enrichAndAdd(data) {
+  let enriched = { ...data };
+  if (data.winery && data.name && data.vintage && (!data.region || !data.grapes)) {
+    setNotice("Looking up region and grape variety…");
+    try {
+      const details = await fetchWineDetails(data.winery, data.name, data.vintage);
+      if (!enriched.region && details.region) enriched.region = details.region;
+      if (!enriched.grapes && details.grapes) enriched.grapes = details.grapes;
+    } catch(e) {}
+    await delay(2000);
+  }
+  setNotice("Searching for bottle photo…");
+  let imageUrl = null;
+  try { imageUrl = await fetchBottlePhoto(enriched.winery, enriched.name, enriched.vintage); } catch(e) {}
+  const wine = { id: `w_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...enriched, imageUrl };
+  wines.push(wine);
+  setNotice("Saving to GitHub…");
+  await saveWines();
+  return wine;
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
+}
+
+function setNotice(msg, type = "info", duration = 0) {
+  const el = document.getElementById("notice-bar");
+  if (!el) return;
+  el.className = `notice ${type}`;
+  el.style.display = msg ? "flex" : "none";
+  el.innerHTML = msg ? `${isLoading ? '<span class="spinner"></span>' : ''} ${msg}` : "";
+  if (duration) setTimeout(() => { el.style.display = "none"; }, duration);
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById("btn-grid").className = v === "grid" ? "active" : "";
+  document.getElementById("btn-list").className = v === "list" ? "active" : "";
+  renderCellar();
+}
+
+function switchTab(name) {
+  ["cellar","photo","manual","csv","remove"].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === name ? "" : "none";
+  });
+  document.querySelectorAll(".tab").forEach((b, i) => {
+    b.className = "tab" + (["cellar","photo","manual","csv","remove"][i] === name ? " active" : "");
+  });
+}
+
+function updateStats() {
+  const totalBottles = wines.reduce((s, w) => s + (w.bottles || 0), 0);
+  document.getElementById("stat-wines").textContent = wines.length;
+  document.getElementById("stat-bottles").textContent = totalBottles;
+  document.getElementById("stat-regions").textContent = new Set(wines.map(w => w.region).filter(Boolean)).size;
+  document.getElementById("summary").textContent = `${wines.length} wines · ${totalBottles} bottles`;
+  const regions = [...new Set(wines.map(w => w.region).filter(Boolean))].sort();
+  const sel = document.getElementById("filter-region");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">All regions</option>` + regions.map(r => `<option value="${r}"${r === cur ? " selected" : ""}>${r}</option>`).join("");
+}
+
+function renderCellar() {
+  updateStats();
+  const q = document.getElementById("search").value.toLowerCase();
+  const region = document.getElementById("filter-region").value;
+  const sort = document.getElementById("sort-by").value;
+  let list = wines.filter(w => {
+    const match = !q || `${w.winery} ${w.name} ${w.grapes} ${w.region}`.toLowerCase().includes(q);
+    const reg = !region || w.region === region;
+    return match && reg;
+  }).sort((a, b) => {
+    if (sort === "winery") return (a.winery || "").localeCompare(b.winery || "");
+    if (sort === "vintage") return (b.vintage || "0").localeCompare(a.vintage || "0");
+    if (sort === "bottles") return (b.bottles || 0) - (a.bottles || 0);
+    return 0;
+  });
+  const el = document.getElementById("cellar-content");
+  if (!list.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">🍾</div><p>No wines yet — add some using the tabs above.</p></div>`; return; }
+  if (currentView === "grid") {
+    el.innerHTML = `<div class="grid">${list.map(cardHTML).join("")}</div>`;
+  } else {
+    el.innerHTML = `<div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);">
+      <table class="list-table"><thead><tr>
+        <th></th><th>Wine</th><th>Region / Grape</th><th>Vintage</th><th>Bottles</th><th></th>
+      </tr></thead><tbody>${list.map(rowHTML).join("")}</tbody></table></div>`;
+  }
+}
+
+function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function cardHTML(w) {
+  const imgPart = w.imageUrl ? `<img src="${w.imageUrl}" onerror="this.style.display='none'" loading="lazy" />` : `<div class="no-img">🍷<br>No photo</div>`;
+  return `<div class="card">
+    <div class="card-img">${imgPart}<span class="vintage-badge">${w.vintage||"—"}</span></div>
+    <div class="card-body">
+      <div class="card-winery">${esc(w.winery)}</div>
+      <div class="card-name">${esc(w.name)}</div>
+      <div class="card-badges">
+        ${w.region?`<span class="badge badge-region">${esc(w.region)}</span>`:""}
+        ${w.grapes?`<span class="badge badge-grape">${esc(w.grapes)}</span>`:""}
+      </div>
+    </div>
+    <div class="card-footer">
+      <div class="bottle-ctrl">
+        <button onclick="updateBottles('${w.id}',-1)">−</button>
+        <span>${w.bottles}</span>
+        <button onclick="updateBottles('${w.id}',1)">+</button>
+      </div>
+    </div>
+    <div class="card-remove"><button class="danger" style="width:100%;" onclick="removeWine('${w.id}')">Remove</button></div>
+  </div>`;
+}
+
+function rowHTML(w) {
+  const thumb = w.imageUrl ? `<img class="thumb" src="${w.imageUrl}" onerror="this.style.display='none'" loading="lazy">` : `<div style="width:36px;height:50px;background:var(--bg3);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;">🍷</div>`;
+  return `<tr>
+    <td>${thumb}</td>
+    <td><div style="font-size:11px;color:var(--text3)">${esc(w.winery)}</div><div style="font-weight:500">${esc(w.name)}</div></td>
+    <td>${w.region?`<span class="badge badge-region" style="margin-right:4px">${esc(w.region)}</span>`:""}${w.grapes?`<span class="badge badge-grape">${esc(w.grapes)}</span>`:""}</td>
+    <td style="color:var(--text2)">${w.vintage||"—"}</td>
+    <td><div class="bottle-ctrl"><button onclick="updateBottles('${w.id}',-1)">−</button><span>${w.bottles}</span><button onclick="updateBottles('${w.id}',1)">+</button></div></td>
+    <td><button class="danger" onclick="removeWine('${w.id}')">Remove</button></td>
+  </tr>`;
+}
+
+async function updateBottles(id, delta) {
+  wines = wines.map(w => w.id === id ? { ...w, bottles: Math.max(0, (w.bottles||0) + delta) } : w).filter(w => w.bottles > 0);
+  renderCellar();
+  await saveWines();
+}
+
+async function removeWine(id) {
+  wines = wines.filter(w => w.id !== id);
+  renderCellar();
+  await saveWines();
+}
+
+function triggerPhoto(mode) {
+  const el = document.getElementById("file-add");
+  if (mode === "capture") el.setAttribute("capture","environment"); else el.removeAttribute("capture");
+  el.click();
+}
+
+function triggerRemovePhoto(mode) {
+  const el = document.getElementById("file-remove");
+  if (mode === "capture") el.setAttribute("capture","environment"); else el.removeAttribute("capture");
+  el.click();
+}
+
+async function handleLabelPhoto(e) {
+  const file = e.target.files?.[0]; if (!file) return;
+  isLoading = true; setNotice("Reading wine label…");
+  try {
+    const b64 = await toBase64(file);
+    const result = await callClaudeWithImage(b64, file.type, `Identify this wine from the label. Return JSON: {"winery":"","name":"","vintage":"","region":"","grapes":"","bottles":1}. Name excludes winery name. Grapes is grape variety/varieties comma-separated. Vintage is 4-digit year string. Region is the wine region. Leave region and grapes as empty string if not clearly on label.`);
+    const data = JSON.parse(result.replace(/```json|```/g,"").trim());
+    if (!data.winery && !data.name) throw new Error("Could not identify");
+    data.bottles = parseInt(data.bottles) || 1;
+    switchTab("cellar");
+    await enrichAndAdd(data);
+    renderCellar();
+    setNotice("Wine added!", "success", 3000);
+  } catch(e) { setNotice("Could not read label. Try manual entry.", "danger", 4000); }
+  isLoading = false; e.target.value = "";
+}
+
+async function handleRemovePhoto(e) {
+  const file = e.target.files?.[0]; if (!file) return;
+  isLoading = true; setNotice("Identifying wine to remove…");
+  try {
+    const b64 = await toBase64(file);
+    const result = await callClaudeWithImage(b64, file.type, `Identify this wine. Return JSON: {"winery":"","name":"","vintage":""}`);
+    const { winery, name } = JSON.parse(result.replace(/```json|```/g,"").trim());
+    const match = wines.find(w => w.name.toLowerCase().includes(name.toLowerCase()) || w.winery.toLowerCase().includes(winery.toLowerCase()));
+    if (match) {
+      wines = wines.map(w => w.id === match.id ? { ...w, bottles: Math.max(0, w.bottles - 1) } : w).filter(w => w.bottles > 0);
+      await saveWines(); renderCellar();
+      setNotice(`Removed 1 bottle of ${match.winery} ${match.name} ${match.vintage}`, "success", 4000);
+    } else { setNotice("Wine not found in cellar.", "danger", 4000); }
+  } catch { setNotice("Could not read label.", "danger", 4000); }
+  isLoading = false; e.target.value = "";
+}
+
+async function handleManualAdd() {
+  const winery = document.getElementById("m-winery").value.trim();
+  const name = document.getElementById("m-name").value.trim();
+  if (!winery || !name) return alert("Winery and name are required.");
+  isLoading = true;
+  const data = { winery, name, vintage: document.getElementById("m-vintage").value.trim(), region: document.getElementById("m-region").value.trim(), grapes: document.getElementById("m-grapes").value.trim(), bottles: parseInt(document.getElementById("m-bottles").value) || 1 };
+  switchTab("cellar");
+  await enrichAndAdd(data);
+  ["m-winery","m-name","m-vintage","m-region","m-grapes"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("m-bottles").value = "1";
+  renderCellar(); setNotice("Wine added!", "success", 3000); isLoading = false;
+}
+
+async function handleCSVImport() {
+  const raw = document.getElementById("csv-text").value.trim(); if (!raw) return;
+  const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+  const isHeader = lines[0].toLowerCase().includes("winery") || lines[0].toLowerCase().includes("name");
+  const data = (isHeader ? lines.slice(1) : lines).map(l => {
+    const p = l.split(",").map(s => s.trim());
+    return { winery: p[0]||"", name: p[1]||"", vintage: p[2]||"", region: p[3]||"", grapes: p[4]||"", bottles: parseInt(p[5])||1 };
+  }).filter(d => d.winery && d.name);
+  if (!data.length) return alert("No valid rows found.");
+  isLoading = true; switchTab("cellar");
+  for (let i = 0; i < data.length; i++) {
+    setNotice(`Adding wine ${i+1} of ${data.length}: ${data[i].winery} ${data[i].name}…`);
+    await enrichAndAdd(data[i]);
+    renderCellar();
+    if (i < data.length - 1) await delay(3000);
+  }
+  document.getElementById("csv-text").value = "";
+  setNotice(`${data.length} wines added!`, "success", 4000); isLoading = false;
+}
+
+async function handleCSVFile(e) {
+  const file = e.target.files?.[0]; if (!file) return;
+  document.getElementById("csv-text").value = await file.text();
+  e.target.value = "";
+}
+
+function toggleToken() {
+  const el = document.getElementById("setup-token");
+  el.type = el.type === "password" ? "text" : "password";
+  document.getElementById("token-toggle").textContent = el.type === "password" ? "show token" : "hide token";
+}
+
+function showSetup() {
+  document.getElementById("setup-screen").style.display = "";
+  document.getElementById("main-screen").style.display = "none";
+  if (config.user) document.getElementById("setup-user").value = config.user;
+  if (config.repo) document.getElementById("setup-repo").value = config.repo;
+  if (config.token) document.getElementById("setup-token").value = config.token;
+}
+
+async function saveSetup() {
+  const errEl = document.getElementById("setup-error");
+  errEl.style.display = "none";
+  const user = document.getElementById("setup-user").value.trim();
+  const repo = document.getElementById("setup-repo").value.trim();
+  const token = document.getElementById("setup-token").value.trim();
+  if (!user || !repo || !token) { errEl.textContent = "All fields are required."; errEl.style.display = "block"; return; }
+  config = { user, repo, token };
+  saveConfig(config);
+  await init();
+}
+
+async function init() {
+  config = loadConfig();
+  if (!config?.token) { showSetup(); return; }
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("main-screen").style.display = "";
+  setNotice("Loading cellar from GitHub…");
+  try {
+    await loadWines();
+    setNotice(""); renderCellar();
+  } catch(e) {
+    setNotice(`Could not connect to GitHub: ${e.message}`, "danger");
+  }
+}
+
+init();
+</script>
+</body>
+</html>
