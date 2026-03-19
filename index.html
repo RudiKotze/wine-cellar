@@ -314,18 +314,44 @@ async function callClaudeWebSearch(userMsg) {
 
 async function fetchBottlePhoto(winery, name, vintage) {
   try {
-    const text = await callClaude([{ role: "user", content: `Find a direct image URL (ending in .jpg, .jpeg, .png, or .webp) for the wine bottle: "${winery} ${name} ${vintage}". Return JSON: {"imageUrl": "https://..."} or {"imageUrl": null}` }], "You are a wine expert. Respond only with valid JSON, no markdown.");
-    const j = JSON.parse(text.replace(/```json|```/g, "").trim());
-    return j.imageUrl || null;
-  } catch { return null; }
+    const r = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        system: "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.",
+        messages: [{ role: "user", content: `Search for a bottle image of "${winery} ${name} ${vintage}" wine. Return JSON with a direct image URL: {"imageUrl": "https://example.com/image.jpg"} or {"imageUrl": null} if not found.` }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }]
+      })
+    });
+    const d = await r.json();
+    console.log("Photo API response:", JSON.stringify(d));
+    const text = d.content?.map(b => b.text || "").join("") || "";
+    const match = text.match(/https?:\/\/[^\s"']+\.(jpg|jpeg|png|webp)/i);
+    return match ? match[0] : null;
+  } catch(e) { console.error("Photo fetch error:", e); return null; }
 }
 
 async function fetchEedesScore(winery, name, vintage, region, grapes) {
   try {
-    const text = await callClaude([{ role: "user", content: `What is the Christian Eedes score for "${winery} ${name} ${vintage}" from ${region}, made from ${grapes}? Return JSON: {"score": 92} or {"score": null}` }], "You are a South African wine expert with knowledge of Christian Eedes scores from winemag.co.za. Respond only with valid JSON, no markdown.");
+    const r = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        system: "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.",
+        messages: [{ role: "user", content: `Search winemag.co.za for the Christian Eedes score for "${winery} ${name} ${vintage}" (${region}, ${grapes}). Return JSON: {"score": 95} or {"score": null}.` }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }]
+      })
+    });
+    const d = await r.json();
+    console.log("Score API response:", JSON.stringify(d));
+    const text = d.content?.map(b => b.text || "").join("") || "";
     const j = JSON.parse(text.replace(/```json|```/g, "").trim());
     return { score: j.score || null, url: null };
-  } catch { return { score: null, url: null }; }
+  } catch(e) { console.error("Score fetch error:", e); return { score: null, url: null }; }
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
