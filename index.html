@@ -484,20 +484,52 @@ async function removeWine(id) {
   await saveWines();
 }
 
+async function fetchWineDetails(winery, name, vintage) {
+  try {
+    const r = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 400,
+        system: "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.",
+        messages: [{ role: "user", content: `Search for details about the wine "${winery} ${name} ${vintage}". Return JSON: {"region": "e.g. Stellenbosch", "grapes": "e.g. Cabernet Sauvignon"} with the wine region and grape variety/varieties. Use empty string if not found.` }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        tool_choice: { type: "auto" }
+      })
+    });
+    const d = await r.json();
+    const text = d.content?.map(b => b.text || "").join("") || "";
+    const match = text.match(/\{[^{}]*"region"[^{}]*\}/s);
+    if (match) {
+      const j = JSON.parse(match[0]);
+      return { region: j.region || "", grapes: j.grapes || "" };
+    }
+    return { region: "", grapes: "" };
+  } catch(e) { console.error("Details error:", e); return { region: "", grapes: "" }; }
+}
+
 async function enrichAndAdd(data) {
+  let enriched = { ...data };
+  if (data.winery && data.name && data.vintage && (!data.region || !data.grapes)) {
+    setNotice("Looking up region and grape variety…");
+    try {
+      const details = await fetchWineDetails(data.winery, data.name, data.vintage);
+      if (!enriched.region && details.region) enriched.region = details.region;
+      if (!enriched.grapes && details.grapes) enriched.grapes = details.grapes;
+    } catch(e) { console.error("Details lookup error:", e); }
+  }
   setNotice("Searching for bottle photo…");
   let imageUrl = null;
   let eedes = { score: null, url: null };
   try {
-    imageUrl = await fetchBottlePhoto(data.winery, data.name, data.vintage);
-    console.log("Photo result:", imageUrl);
+    imageUrl = await fetchBottlePhoto(enriched.winery, enriched.name, enriched.vintage);
   } catch(e) { console.error("Photo error:", e); }
   setNotice("Finding Christian Eedes score…");
   try {
-    eedes = await fetchEedesScore(data.winery, data.name, data.vintage, data.region, data.grapes);
-    console.log("Score result:", eedes);
+    eedes = await fetchEedesScore(enriched.winery, enriched.name, enriched.vintage, enriched.region, enriched.grapes);
   } catch(e) { console.error("Score error:", e); }
-  const wine = { id: `w_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...data, imageUrl, eedesScore: eedes.score, eedesUrl: eedes.url };
+  const wine = { id: `w_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...enriched, imageUrl, eedesScore: eedes.score, eedesUrl: eedes.url };
   wines.push(wine);
   setNotice("Saving to GitHub…");
   await saveWines();
@@ -525,7 +557,7 @@ async function handleLabelPhoto(e) {
   isLoading = true; setNotice("Reading wine label…");
   try {
     const b64 = await toBase64(file);
-    const result = await callClaudeWithImage(b64, file.type, `Identify this wine. Return JSON: {"winery":"","name":"","vintage":"","region":"","grapes":"","bottles":1}. Name excludes winery. Grapes comma-separated. Vintage is 4-digit year string. Region is wine region. Empty string if unsure.`);
+    const result = await callClaudeWithImage(b64, file.type, `Identify this wine from the label. Return JSON: {"winery":"","name":"","vintage":"","region":"","grapes":"","bottles":1}. Name excludes winery name. Grapes is the grape variety or varieties comma-separated. Vintage is 4-digit year string. Region is the wine region (e.g. Stellenbosch, Swartland). If you cannot read region or grapes from the label, leave as empty string — they will be looked up automatically.`);
     const data = JSON.parse(result.replace(/```json|```/g,"").trim());
     if (!data.winery && !data.name) throw new Error("Could not identify");
     data.bottles = parseInt(data.bottles) || 1;
