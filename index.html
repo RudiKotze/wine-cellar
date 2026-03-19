@@ -122,8 +122,7 @@
     <label>Personal Access Token <a href="https://github.com/settings/tokens/new?scopes=repo&description=Wine+Cellar" target="_blank" style="color:var(--accent);font-size:11px;margin-left:4px;">Create one ↗</a></label>
     <input id="setup-token" type="password" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" />
     <button id="token-toggle" onclick="toggleToken()">show token</button>
-    <label style="margin-top:12px;">Anthropic API key <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent);font-size:11px;margin-left:4px;">Find it here ↗</a></label>
-    <input id="setup-anthropic" type="password" placeholder="sk-ant-xxxxxxxxxxxx" autocomplete="off" />
+
     <br><br>
     <button class="primary" onclick="saveSetup()" style="width:100%;padding:10px;">Save & connect</button>
     <div id="setup-error" style="display:none;margin-top:10px;padding:8px 12px;background:var(--danger-bg);color:var(--danger-text);border-radius:var(--radius-sm);font-size:13px;"></div>
@@ -235,7 +234,7 @@
 </div>
 
 <script>
-const ANTHROPIC_KEY = ""; // injected via setup — never hardcoded
+const PROXY_URL = "https://wine-cellar-proxy.rudi-57f.workers.dev";
 const DATA_FILE = "cellar.json";
 let config = {};
 let wines = [];
@@ -283,9 +282,9 @@ async function saveWines() {
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 async function callClaude(messages, system, maxTokens = 1000) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const r = await fetch(PROXY_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": config.anthropicKey, "anthropic-version": "2023-06-01" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, system: system || "Respond only with valid JSON, no markdown, no backticks.", messages })
   });
   const d = await r.json();
@@ -300,9 +299,9 @@ async function callClaudeWithImage(b64, mediaType, prompt) {
 }
 
 async function callClaudeWebSearch(userMsg) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const r = await fetch(PROXY_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": config.anthropicKey, "anthropic-version": "2023-06-01" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 600,
       system: "You are a wine expert. Respond only with valid JSON, no markdown, no backticks.",
       messages: [{ role: "user", content: userMsg }],
@@ -580,13 +579,12 @@ async function saveSetup() {
   const user = document.getElementById("setup-user").value.trim();
   const repo = document.getElementById("setup-repo").value.trim();
   const token = document.getElementById("setup-token").value.trim();
-  const anthropicKey = document.getElementById("setup-anthropic").value.trim();
-  if (!user || !repo || !token || !anthropicKey) {
-    errEl.textContent = "All four fields are required.";
+  if (!user || !repo || !token) {
+    errEl.textContent = "All three fields are required.";
     errEl.style.display = "block";
     return;
   }
-  config = { user, repo, token, anthropicKey };
+  config = { user, repo, token };
   saveConfig(config);
   await init();
 }
@@ -594,7 +592,7 @@ async function saveSetup() {
 async function init() {
   config = loadConfig();
   if (!config?.token) { showSetup(); return; }
-  if (!config.anthropicKey) { showSetup(); return; }
+
   document.getElementById("setup-screen").style.display = "none";
   document.getElementById("main-screen").style.display = "";
   setNotice("Loading cellar from GitHub…");
