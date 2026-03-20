@@ -94,9 +94,29 @@
   textarea { resize: vertical; }
   #token-toggle { font-size: 11px; color: var(--text3); background: none; border: none; padding: 0; margin-top: 4px; cursor: pointer; }
   @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } .stats { grid-template-columns: 1fr 1fr; } .list-table { display: none; } }
+  #vintage-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  #vintage-modal { background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius); padding: 1.75rem; width: 100%; max-width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+  #vintage-modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 0.4rem; }
+  #vintage-modal p { font-size: 13px; color: var(--text2); margin-bottom: 1.25rem; line-height: 1.5; }
+  #vintage-modal .modal-row { display: flex; gap: 10px; margin-top: 1rem; }
+  #vintage-modal .modal-row button { flex: 1; }
 </style>
 </head>
 <body>
+<div id="vintage-modal-overlay" style="display:none;">
+  <div id="vintage-modal">
+    <h3>Vintage not found</h3>
+    <p>The year (vintage) wasn't visible on this label. Please enter it manually, or skip to leave it blank.</p>
+    <div class="form-group">
+      <label for="vintage-modal-input">Vintage year</label>
+      <input id="vintage-modal-input" type="number" min="1900" max="2100" placeholder="e.g. 2020">
+    </div>
+    <div class="modal-row">
+      <button id="vintage-modal-skip">Skip</button>
+      <button id="vintage-modal-confirm" class="primary">Confirm</button>
+    </div>
+  </div>
+</div>
 <div id="app">
   <div id="setup-screen" style="display:none;">
     <h2>🍷 Wine Cellar Setup</h2>
@@ -335,6 +355,23 @@ function triggerRemovePhoto(mode) {
   el.click();
 }
 
+function showVintagePrompt() {
+  return new Promise(resolve => {
+    const overlay = document.getElementById("vintage-modal-overlay");
+    const input = document.getElementById("vintage-modal-input");
+    input.value = "";
+    overlay.style.display = "flex";
+    const cleanup = (value) => {
+      overlay.style.display = "none";
+      resolve(value);
+    };
+    document.getElementById("vintage-modal-confirm").onclick = () => cleanup(input.value.trim());
+    document.getElementById("vintage-modal-skip").onclick = () => cleanup("");
+    input.onkeydown = (e) => { if (e.key === "Enter") cleanup(input.value.trim()); };
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
 async function handleLabelPhoto(e) {
   const file = e.target.files?.[0]; if (!file) return;
   isLoading = true; setNotice("Reading wine label…");
@@ -344,6 +381,11 @@ async function handleLabelPhoto(e) {
     const data = JSON.parse(result.replace(/```json|```/g, "").trim());
     if (!data.winery && !data.name) throw new Error("Could not identify");
     data.bottles = parseInt(data.bottles) || 1;
+    if (!data.vintage) {
+      isLoading = false;
+      data.vintage = await showVintagePrompt();
+      isLoading = true;
+    }
     switchTab("cellar");
     await enrichAndAdd(data);
     renderCellar();
